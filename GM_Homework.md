@@ -1,34 +1,11 @@
----
-title: "Homework Assignment"
-author: "Christopher Fong"
-date: "03/12/2020"
-output: 
-  md_document:
-    variant: markdown_github
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-library(haven)
-library(tidyverse)
-library(purrr)
-library(data.table)
-library(relaimpo)
-
-```
-
-
-
-```{r read_data}
+``` r
 experiment_data <-  read_sav('data/experiment_data.sav')
 survey_data <-  read_sav('data/survey_data.sav')
-
 ```
 
+### 1. Data checking, missing and deuplicated data
 
-### 1. Data checking,  missing and deuplicated data
-```{r data_check}
+``` r
 #Check is there any missing data or any duplicated data
 
 #Duplication check
@@ -36,26 +13,39 @@ duplicate_survey_data<-survey_data%>%
   group_by(response_id)%>%
   summarise(count = n())%>%
   filter(count > 1)
-
-print(nrow(duplicate_survey_data))
-
 ```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+``` r
+print(nrow(duplicate_survey_data))
+```
+
+    ## [1] 0
+
 There is no duplicated data in the survey data
 
-```{r data_check_experiment}
+``` r
 #Check if there is any Duplicated data for experiment data
 
 duplicate_experiment_data<-experiment_data%>%
   group_by(response_id, duration,offer, outcome, price, rtb, social_proof)%>%
   dplyr::summarise(count = n())%>%
   filter(count > 1)
+```
 
+    ## `summarise()` regrouping output by 'response_id', 'duration', 'offer', 'outcome', 'price', 'rtb' (override with `.groups` argument)
+
+``` r
 print(nrow(duplicate_experiment_data))
 ```
-As there are duplicared data in the experiment dataset, the next step is to check whether they are consitent or not.
 
+    ## [1] 20
 
-```{r consitent_check}
+As there are duplicared data in the experiment dataset, the next step is
+to check whether they are consitent or not.
+
+``` r
 # Merge the dataset for consitent checking
 duplicate_experiment_data2<-duplicate_experiment_data%>%
   ungroup()%>%
@@ -69,13 +59,17 @@ contradict_case = duplicate_experiment_data2%>%
   group_by(case)%>%
   summarise(count = n())%>%
   filter(count > 1)
-
-print(paste0("There are ",nrow(contradict_case), " occasions that there is contradiction between choices of the respondent, same questions but different answer"))
-
-
 ```
 
-```{r remove_data}
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+``` r
+print(paste0("There are ",nrow(contradict_case), " occasions that there is contradiction between choices of the respondent, same questions but different answer"))
+```
+
+    ## [1] "There are 3 occasions that there is contradiction between choices of the respondent, same questions but different answer"
+
+``` r
 #Select those ID which have contradict answer as they are not reliable
 id_to_remove = duplicate_experiment_data2%>%
   filter(case %in% contradict_case$case)%>%
@@ -91,8 +85,7 @@ experiment_data_dedup_decon = experiment_data%>%
 
 ### 2. Descriptive Data analysis
 
-```{r answer_distribution}
-
+``` r
 #Distribution plot for all the attributes in experiment data
 
 # for (i in 1:6){
@@ -113,8 +106,7 @@ experiment_data_dedup_decon = experiment_data%>%
 
 ### 3. Modelling the data
 
-```{r conjon_model}
-
+``` r
 #Convert all the variables to factor 
 experiment_data_dedup_decon[,2:7] <- lapply(experiment_data_dedup_decon[,2:7], factor)
 
@@ -144,6 +136,6 @@ ggplot(relative_impact, aes(x = variable, y = Relative_impact))+
   coord_flip()
 ```
 
+![](GM_Homework_files/figure-markdown_github/conjon_model-1.png)
+
 ### 4. Clustering on groups of respondent
-```{r cluster}
-```

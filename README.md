@@ -577,11 +577,7 @@ kable(round(t(k2$centers), 3))
 | social\_proofprofessional athletes                    |   0.018|  -0.004|
 | social\_proofscientific evidence                      |   0.000|  -0.002|
 
-``` r
-# kable(k2$centers, caption = "center point of cluster with k = 2")
-```
-
-Group 1’s average PW are much larger than group 2 meaning they are more
+Group 1’s average absolute PW are much larger than group 2 meaning they are more
 sensitve person
 
 ``` r

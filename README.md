@@ -1,4 +1,21 @@
 ``` r
+knitr::opts_chunk$set(echo = TRUE)
+
+library(haven)
+library(tidyverse)
+library(purrr)
+library(egg)
+library(data.table)
+library(relaimpo)
+library(factoextra)
+library(cluster)
+library(rpart)
+library(rpart.plot)
+library(knitr)
+set.seed(915)
+```
+
+``` r
 # Data Input
 experiment_data <-  read_sav('data/experiment_data.sav')
 survey_data <-  read_sav('data/survey_data.sav')
@@ -852,3 +869,126 @@ Philosophy_results$the_summary
     ##  3:125          
     ##  4:219          
     ##  5:163
+
+``` r
+full_df = indv_PW%>%
+  rename('response_id' = 'id')%>%
+  left_join(survey_demo, c('response_id'))%>%
+  left_join(survey_behavior, c('response_id'))%>%
+  left_join(survey_philosophy, c('response_id'))%>%
+  left_join(cluster, c( 'response_id'))
+
+full_df<-full_df%>%
+  dplyr::select(-weights)
+
+full_df[is.na(full_df)] <- 0
+
+full_df[,21:77] <- lapply(full_df[,21:77], factor)
+
+#Gower clustering to hander categorical data
+gower_dist <- daisy(full_df[,2:76], metric = "gower")
+gower_mat <- as.matrix(gower_dist)
+
+#With k =2, 3, 6 
+pam_fit_2 <- pam(gower_dist, diss = TRUE, 2)
+pam_fit_3 <- pam(gower_dist, diss = TRUE, 3)
+pam_fit_6 <- pam(gower_dist, diss = TRUE, 6)
+
+#Put them back to full dataset
+full_df$gower_cluster_2 = pam_fit_2$clustering
+full_df$gower_cluster_3 = pam_fit_3$clustering
+full_df$gower_cluster_6 = pam_fit_6$clustering
+
+tree_data_2 = full_df[,c(2:76, 80)]
+tree_data_3 = full_df[,c(2:76, 81)]
+tree_data_6 = full_df[,c(2:76, 82)]
+
+#Create tree diagram to indetify the group characteristics
+tree_2 <- rpart(as.factor(gower_cluster_2)~., data=tree_data_2, cp=.02)
+tree_3 <- rpart(as.factor(gower_cluster_3)~., data=tree_data_3, cp=.02)
+tree_6 <- rpart(as.factor(gower_cluster_6)~., data=tree_data_6, cp=.02)
+
+rpart.plot(tree_2, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+```
+
+![](GM_Homework_files/figure-markdown_github/futher_cluster-1.png)
+
+``` r
+rpart.plot(tree_3, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+```
+
+![](GM_Homework_files/figure-markdown_github/futher_cluster-2.png)
+
+``` r
+rpart.plot(tree_6, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+```
+
+![](GM_Homework_files/figure-markdown_github/futher_cluster-3.png)
+
+Take k =2 as the example for further study.
+
+Based on the above tree diagrma, group 2 are those who are not parent or
+don’t have full time/ part time job given they are not very sucessful in
+improving sleep by went to bed at the same time
+
+the clustering groupn would be put back to the experiment data set to
+see are they likely to download the apps
+
+``` r
+cluster_g = cbind(indv_PW$id, pam_fit_2$clustering,  pam_fit_3$clustering,  pam_fit_6$clustering)%>%data.frame()
+colnames(cluster_g) = c('response_id', 'gower_cluster_2',  'gower_cluster_3', 'gower_cluster_6')
+
+experiment_data_dedup_decon_cluster_g<-experiment_data_dedup_decon%>%
+  left_join(cluster_g, 'response_id')
+
+experiment_data_dedup_decon_cluster_g%>%
+  dplyr::group_by(gower_cluster_2)%>%
+  summarise(answer = mean(answer))
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## # A tibble: 2 x 2
+    ##   gower_cluster_2 answer
+    ##   <chr>            <dbl>
+    ## 1 1                 2.66
+    ## 2 2                 1.74
+
+``` r
+experiment_data_dedup_decon_cluster_g%>%
+  dplyr::group_by(gower_cluster_3)%>%
+  summarise(answer = mean(answer))
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## # A tibble: 3 x 2
+    ##   gower_cluster_3 answer
+    ##   <chr>            <dbl>
+    ## 1 1                 2.94
+    ## 2 2                 1.90
+    ## 3 3                 1.69
+
+``` r
+experiment_data_dedup_decon_cluster_g%>%
+  dplyr::group_by(gower_cluster_6)%>%
+  summarise(answer = mean(answer))
+```
+
+    ## `summarise()` ungrouping output (override with `.groups` argument)
+
+    ## # A tibble: 6 x 2
+    ##   gower_cluster_6 answer
+    ##   <chr>            <dbl>
+    ## 1 1                 3.17
+    ## 2 2                 2.42
+    ## 3 3                 1.58
+    ## 4 4                 2.03
+    ## 5 5                 2.07
+    ## 6 6                 1.63
+
+Based on the above results, paretns are morre likely to download the
+application. If we combine the result with k =3 and k -6 clustering,
+those with children or parents who are note very successful in improving
+sleep by went to bed at the same time are more likely to download the
+application.

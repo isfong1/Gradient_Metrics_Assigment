@@ -1,4 +1,5 @@
 ``` r
+# Data Input
 experiment_data <-  read_sav('data/experiment_data.sav')
 survey_data <-  read_sav('data/survey_data.sav')
 ```
@@ -13,11 +14,7 @@ duplicate_survey_data<-survey_data%>%
   group_by(response_id)%>%
   summarise(count = n())%>%
   filter(count > 1)
-```
 
-    ## `summarise()` ungrouping output (override with `.groups` argument)
-
-``` r
 print(nrow(duplicate_survey_data))
 ```
 
@@ -32,11 +29,7 @@ duplicate_experiment_data<-experiment_data%>%
   group_by(response_id, duration,offer, outcome, price, rtb, social_proof)%>%
   dplyr::summarise(count = n())%>%
   filter(count > 1)
-```
 
-    ## `summarise()` regrouping output by 'response_id', 'duration', 'offer', 'outcome', 'price', 'rtb' (override with `.groups` argument)
-
-``` r
 print(nrow(duplicate_experiment_data))
 ```
 
@@ -59,11 +52,7 @@ contradict_case = duplicate_experiment_data2%>%
   group_by(case)%>%
   summarise(count = n())%>%
   filter(count > 1)
-```
 
-    ## `summarise()` ungrouping output (override with `.groups` argument)
-
-``` r
 print(paste0("There are ",nrow(contradict_case), " occasions that there is contradiction between choices of the respondent, same questions but different answer"))
 ```
 
@@ -106,6 +95,11 @@ experiment_data_dedup_decon = experiment_data%>%
 
 ### 3. Modelling the data
 
+### 3a. Initial conjoint model with lm
+
+Conjoint with the ordiary sacle is used to analyise the relative impact
+of each variables
+
 ``` r
 #Convert all the variables to factor 
 experiment_data_dedup_decon[,2:7] <- lapply(experiment_data_dedup_decon[,2:7], factor)
@@ -122,20 +116,130 @@ relative_impact<-relImp@lmg%>%data.frame()
 colnames(relative_impact)<-"Relative_impact"
 
 relative_impact$variable<-rownames(relative_impact)
-relative_impact$label <- round(relative_impact$Relative_impact, 2)
+relative_impact$label <- round(relative_impact$Relative_impact, 2) #create label for plotting
 
 relative_impact<-relative_impact%>%
   arrange(Relative_impact)%>%
-   mutate(variable=factor(variable, levels=variable))
+   mutate(variable=factor(variable, levels=variable)) #Ordering the plot by relative impact
 
 ggplot(relative_impact, aes(x = variable, y = Relative_impact))+
   geom_bar(stat = "identity", fill = "#002B49")+
   theme_minimal()+
-  geom_text(aes(label = label, hjust = -0.6), color = "black")+
+  geom_text(aes(label = label, hjust = -0.6), color = "black")+ 
   ylim(0,1)+ 
   coord_flip()
 ```
 
 ![](GM_Homework_files/figure-markdown_github/conjon_model-1.png)
 
+Based on the above result, Price is the dominant factor on the descision
+to download the application or not
+
+``` r
+#Individual part-wroths plot
+
+#Get the coefficient of the model
+coef = model_cj$coefficients%>%
+  data.frame()
+
+#Create variables to merge with dataset to be create to get attribute and level
+coef$to_merge<-rownames(coef)
+
+#Get all attributes and levels
+pw_df<-NULL
+
+for (i in 1:6){
+  tmp<-experiment_data_dedup_decon[i+1]%>%
+    unique()%>%
+    data.frame()%>%
+    mutate(Attributes = colnames(experiment_data_dedup_decon[i+1]))
+  
+  colnames(tmp)[1] = "Levels"            
+  
+  pw_df<-pw_df%>%
+    bind_rows(tmp)
+}
+
+#Combine both dataset
+pw_df<-pw_df%>%
+  mutate(to_merge = paste0(Attributes, Levels))%>%
+  left_join(coef, 'to_merge')%>%
+  rename("PW" = ".")
+
+#Calculate the PW for the remaining level which don't have coefficient (based on the conjoint package, it is - of the sum of all the other levels)
+pw_df_remaining = pw_df%>%
+  group_by(Attributes)%>%
+  summarise(PW_remaining = -sum(PW, na.rm = T))
+
+#Combine with the pw_df to the the full PW dataset
+pw_df_full<-pw_df%>%
+  left_join(pw_df_remaining, 'Attributes')%>%
+  mutate(PW = ifelse(is.na(PW) == T, PW_remaining, PW))%>%
+  dplyr::select(-PW_remaining)
+
+
+
+#Loop over the attributes to create the plot
+
+for (i in 1: length(unique(pw_df_full$Attributes))){
+  To_plot = pw_df_full%>%
+    filter(Attributes == unique(pw_df_full$Attributes)[i])%>%
+    mutate(Levels = str_wrap(Levels, 10))%>%
+    mutate(vjust = ifelse(PW <0, 1.2, -0.6))
+  
+  p1<-ggplot(To_plot, aes(x = Levels, y = PW))+
+    geom_bar(stat = "identity", fill = "#002B49")+
+    theme_minimal()+
+    geom_text(aes(label = round(PW, 4), vjust = vjust), color = "black", size = 2)+
+    ggtitle(paste0("Part-worths of:"), unique(pw_df_full$Attributes)[i])+
+    xlab("")+
+    theme(text = element_text(size =8))
+  
+  assign(paste0('plot_', i), p1)
+  
+}
+
+
+egg::ggarrange(plot_1, plot_2, ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/PW_plot-1.png)
+
+``` r
+egg::ggarrange(plot_3, plot_4, ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/PW_plot-2.png)
+
+``` r
+egg::ggarrange(plot_5, plot_6, ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/PW_plot-3.png)
+
+For each attributes, the followings have most positive impact to the
+likelihood to download the application: Duration: 3 months offer is
+relatively more attractive to the other 2. It is worth to investigate
+why 6 months is less attractive to 12 months. One of the possible reason
+is that if people are interested in the application, they would prefer
+to have a longer relationship
+
+Offer: People who are likely to download care about the helath for the
+long-run far more than being energize. In other words, they are more
+consider the long term impact than the short term
+
+Outcome: The result of outcome consistent with the result from offer.
+People care about health and long term benefit.
+
+Price: Lower subscrition is highly preffered over the higher one
+
+rtb: People prefer targeted progroamme over generic items.
+
+social proof: Respondents believe in science and research over
+experience without scientific backup
+
+### 3b. Initial conjoint model with lm with interaction term
+
 ### 4. Clustering on groups of respondent
+
+### 4a.

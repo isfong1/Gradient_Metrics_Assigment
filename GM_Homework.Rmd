@@ -2,7 +2,7 @@
 title: "Homework Assignment"
 author: "Christopher Fong"
 date: "03/12/2020"
-output:
+output: 
   md_document:
     variant: markdown_github
 ---
@@ -13,9 +13,15 @@ knitr::opts_chunk$set(echo = TRUE)
 library(haven)
 library(tidyverse)
 library(purrr)
+library(egg)
 library(data.table)
 library(relaimpo)
-
+library(factoextra)
+library(cluster)
+library(rpart)
+library(rpart.plot)
+library(knitr)
+set.seed(915)
 ```
 
 
@@ -24,6 +30,27 @@ library(relaimpo)
 # Data Input
 experiment_data <-  read_sav('data/experiment_data.sav')
 survey_data <-  read_sav('data/survey_data.sav')
+
+#Split the survey data based on their characteristics
+survey_source <-
+  survey_data %>%
+  dplyr::select(response_id, contains('source'))
+
+survey_behavior <-
+  survey_data %>%
+  dplyr::select(response_id, contains('behavior'))
+
+survey_other <-
+  survey_data %>%
+  dplyr::select(response_id, interst_cbt:interest_coach)
+
+survey_demo <-
+  survey_data %>%
+  dplyr::select(response_id, d_urban:s_problem, d_marital:weights)
+
+survey_philosophy <-
+  survey_data %>%
+  dplyr::select(response_id, contains('m1_philosophy'))
 
 ```
 
@@ -76,6 +103,8 @@ print(paste0("There are ",nrow(contradict_case), " occasions that there is contr
 
 ```
 
+
+Because their answer is inconsistnet, the respondent are not rational in this research. I would remove them from the analysis.
 ```{r remove_data ,message=FALSE}
 #Select those ID which have contradict answer as they are not reliable
 id_to_remove = duplicate_experiment_data2%>%
@@ -96,21 +125,50 @@ experiment_data_dedup_decon = experiment_data%>%
 
 #Distribution plot for all the attributes in experiment data
 
-# for (i in 1:6){
-#    ans_dist<- experiment_data_dedup_decon%>%
-#     group_by_(colnames(experiment_data_dedup_decon)[i+1], "answer")%>%
-#     dplyr::summarise(count = n())%>%
-#     group_by_(colnames(experiment_data_dedup_decon)[i+1])%>%
-#     mutate(percent_count = count / sum(count))%>%
-#     dplyr::select(-count)
-#    
-#    plot<-ggplot(ans_dist, aes(x = eval(parse(colnames(experiment_data_dedup_decon)[i+2])), y = percent_count))+
-#      geom_bar(stat = "identity")
-#      
-#    
-#    print(plot)
-# }
+distribution_plot = function(data, ...){
+  ans_dist<- data%>%
+    group_by(..., answer)%>%
+    dplyr::summarise(count = n())%>%
+    group_by(...)%>%
+    mutate(percent_count = count / sum(count))%>%
+    dplyr::select(-count)%>%
+    mutate(answer = as.factor(answer))
+  
+  ggplot(ans_dist, aes(x = ..., y = percent_count, fill = answer))+
+    geom_bar(stat = "identity")+
+    scale_fill_brewer(palette="Accent")+
+    theme_minimal()+
+    theme(text = element_text(size =8))
+}
+
+experiment_data_dedup_decon_plot<-experiment_data_dedup_decon%>%
+  mutate(offer        = str_wrap(offer, 10),
+         outcome      = str_wrap(outcome, 10),
+         rtb          = str_wrap(rtb, 10),
+         social_proof = str_wrap(social_proof, 10))
+
+ans_dist_plot_1 <- distribution_plot(experiment_data_dedup_decon_plot, duration)
+ans_dist_plot_2 <- distribution_plot(experiment_data_dedup_decon_plot, offer)
+ans_dist_plot_3 <- distribution_plot(experiment_data_dedup_decon_plot, outcome)
+ans_dist_plot_4 <- distribution_plot(experiment_data_dedup_decon_plot, rtb)
+ans_dist_plot_5 <- distribution_plot(experiment_data_dedup_decon_plot, social_proof)
+ans_dist_plot_6 <- distribution_plot(experiment_data_dedup_decon_plot, price)
+
+
+egg::ggarrange(ans_dist_plot_1, ans_dist_plot_2, ncol = 2)
+egg::ggarrange(ans_dist_plot_3, ans_dist_plot_4, ncol = 2)
+egg::ggarrange(ans_dist_plot_5, ans_dist_plot_6, ncol = 2)
+
 ```
+
+Based on above distribution plot, the distribution of the answer for duration and offer don't have much variation
+For outcome, "breaking bad habits and creating new rountines" have more very likely and somewhat likely to download
+For rtb, wiht pharses "daily text messages from a coach" is less likely to download
+For social proof, "Scientific evidence" and "leading researchers" are preferred over the other 2
+While for price, $20/month is much more attractive than the other 2 plans
+
+There aren't much changes in ordering when we combing 3&4 and 1&2 except for duration. So I would keep it at 4 levels at the initial stage
+
 
 ### 3. Modelling the data
 
@@ -237,15 +295,240 @@ rtb: People prefer targeted progroamme over generic items.
 
 social proof: Respondents believe in science and research over experience without scientific backup
 
-### 3b. Initial conjoint model with lm with interaction term
+### 3b. Initial conjoint model with lm by price level
 
-```{}
+Based on above results price is the dominat factor affecting whether perople to download the application or not. 
+How would price interact with other variables or would there be any different under different price levels.
+
+The next step is to see if there are any changes on relative impact under different price
+
+```{r price_lm, message=FALSE}
+
+#Split data into different price level
+experiment_data_dedup_decon_20 = experiment_data_dedup_decon%>%filter(price == "$20/month")
+experiment_data_dedup_decon_30 = experiment_data_dedup_decon%>%filter(price == "$30/month")
+experiment_data_dedup_decon_40 = experiment_data_dedup_decon%>%filter(price == "$40/month")
+
+#Built 3 models of different price level  using conjoint  
+model_cj_20<-lm(answer ~ duration+offer+outcome+rtb+social_proof,
+           data = experiment_data_dedup_decon_20)
+
+model_cj_30<-lm(answer ~ duration+offer+outcome+rtb+social_proof,
+           data = experiment_data_dedup_decon_30)
+
+model_cj_40<-lm(answer ~ duration+offer+outcome+rtb+social_proof,
+           data = experiment_data_dedup_decon_40)
+
+#Calculate relative Impact of the model
+relImp_20 <- calc.relimp(model_cj_20, type =c("lmg"), rela = TRUE)
+relImp_30 <- calc.relimp(model_cj_30, type =c("lmg"), rela = TRUE)
+relImp_40 <- calc.relimp(model_cj_40, type =c("lmg"), rela = TRUE)
+
+
+relative_impact_20<-relImp_20@lmg%>%data.frame()
+relative_impact_30<-relImp_30@lmg%>%data.frame()
+relative_impact_40<-relImp_40@lmg%>%data.frame()
+
+relative_impact_20$variable<-rownames(relative_impact_20)
+relative_impact_30$variable<-rownames(relative_impact_30)
+relative_impact_40$variable<-rownames(relative_impact_40)
+
+relative_impact_20 <- relative_impact_20%>%mutate(price = "$20/month")
+relative_impact_30 <- relative_impact_30%>%mutate(price = "$30/month")
+relative_impact_40 <- relative_impact_40%>%mutate(price = "$40/month")
+
+
+relative_impact_price <- relative_impact_20%>%
+  bind_rows(relative_impact_30)%>%
+  bind_rows(relative_impact_40)
+  
+  
+colnames(relative_impact_price)[1]<-"Relative_impact"
+
+
+relative_impact_price$label <- round(relative_impact_price$Relative_impact, 2) #create label for plotting
+
+ggplot(relative_impact_price, aes(x = price, y = Relative_impact))+
+  geom_bar(stat = "identity", fill = "#002B49")+
+  facet_wrap(~variable)+
+  theme_minimal()+
+  geom_text(aes(label = label, hjust = -0.6), color = "black")+ 
+  ylim(0,1)+ 
+  coord_flip()
+
 ```
+rtb and social_proof are the most influential attributes in all price level but at $40/month, social proof is more influential than others
+It is also remarkable that duration is the third influential attributes at $30/month which is much lower in other price level
 
 ### 4. Clustering on groups of respondent
 
-### 4a. 
+### 4a. Segmentation on the indivdual fitted model
+
+To indentify whether there are any particular groups of respondent which share similar chareteristic, we first build an conjoint model for each individual. The coefficient in the model would show how each individual likelihood to downloand would change aganist varaibles.
+
+We first build the cluster based on those data
 ```{r cluster, message=FALSE}
+
+indv_coef<-NULL
+
+#Build the  model for each indvidual and get the utility for all the variables
+for (i in 1: length(unique(experiment_data_dedup_decon$response_id))){
+  
+  #Get the individual data
+  indv_df = experiment_data_dedup_decon%>%
+    filter(response_id == unique(experiment_data_dedup_decon$response_id)[i])
+  
+ #Build the model
+  model_indv<-lm(answer ~ duration+offer+outcome+price+rtb+social_proof+0,
+                 data = indv_df)
+  
+  #Get the coefficient
+  coef_indv = model_indv$coefficients%>%
+    data.frame()
+  
+  #MCombine dataset
+  coef_indv$to_merge<-rownames(coef_indv)
+  coef_indv$id = unique(experiment_data_dedup_decon$response_id)[i]
+  
+  coef_indv<-coef_indv%>%
+    rename("PW" = ".")
+  
+  indv_coef<-indv_coef%>%
+    rbind(coef_indv)
+}
+
+# Convert table to wide format
+indv_PW<-indv_coef%>%
+  spread(to_merge, PW)
+
+#Assume all the NA are 0
+indv_PW[is.na(indv_PW)] <- 0
+```
+
+```{r determin_number _of_cluster, message=FALSE}
+# Using kmeans and determine the optimal number of k by various method
+
+#silhouette
+fviz_nbclust(indv_PW[,2:20], kmeans, method = "silhouette")
+
+#Gap Stat
+gap_stat <- clusGap(indv_PW[,2:20], FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+
+#Elbow
+fviz_nbclust(indv_PW[,2:20], kmeans, method = "wss")
+
+
+```
+
+Despite silhoutte and gap method suggest that the optimal number are 2 and 3 respectively but it is worth to see what if there are more groups variation. 6 is the next best after k = 2 or 3, then we would do a kmeans clustering of 2,3 and 6 for comparison
+
+```{r kmeans , message = FALSE}
+
+k_clust_indv_PW = indv_PW[,2:20]
+
+k2 <- kmeans(k_clust_indv_PW, centers = 2, nstart = 25)
+k3 <- kmeans(k_clust_indv_PW, centers = 3, nstart = 25)
+k6 <- kmeans(k_clust_indv_PW, centers = 6, nstart = 25)
+
+fviz_cluster(k2, data = k_clust_indv_PW)
+fviz_cluster(k3, data = k_clust_indv_PW)
+fviz_cluster(k6, data = k_clust_indv_PW)
+
+#Explain each individual group by tree diagram
+
+tree_data_k2<-k_clust_indv_PW %>% mutate(cluster = factor(k2$cluster))
+tree_data_k3<-k_clust_indv_PW %>% mutate(cluster = factor(k3$cluster))
+tree_data_k6<-k_clust_indv_PW %>% mutate(cluster = factor(k6$cluster))
+
+tree_k2 <- rpart::rpart(cluster~., data=tree_data_k2, cp=.02)
+tree_k3 <- rpart::rpart(cluster~., data=tree_data_k3, cp=.02)
+tree_k6 <- rpart::rpart(cluster~., data=tree_data_k6, cp=.02)
+
+rpart.plot(tree_k2, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+rpart.plot(tree_k3, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+rpart.plot(tree_k6, box.palette="RdBu", shadow.col="gray", nn=TRUE)
+
+```
+
+Based on above tree diagram, there are larger difference between how the respondents react to likely to download under different duration. Take 2 groups case as an examples, group 1 are more reactive to duration, while group 2 are less reactive to duration
+
+When 2 center points compared:
+```{r print_k_center, massage = F}
+library(DT)
+options(scipen=999)
+kable(round(t(k2$centers), 3))
+# kable(k2$centers, caption = "center point of cluster with k = 2")
+```
+
+Group 1's average PW are much larger than group 2 meaning they are more sensitve person
+
+```{r merge_back_answer, massage = F}
+
+cluster = cbind(indv_PW$id, k2$cluster, k3$cluster, k6$cluster)%>%data.frame()
+colnames(cluster) = c('response_id', 'k2_cluster', 'k3_cluster', 'k6_cluster')
+
+experiment_data_dedup_decon_cluster<-experiment_data_dedup_decon%>%
+  left_join(cluster, 'response_id')
+
+experiment_data_dedup_decon_cluster%>%
+  dplyr::group_by(k2_cluster)%>%
+  summarise(answer = mean(answer))
+
+experiment_data_dedup_decon_cluster%>%
+  dplyr::group_by(k3_cluster)%>%
+  summarise(answer = mean(answer))
+
+experiment_data_dedup_decon_cluster%>%
+  dplyr::group_by(k6_cluster)%>%
+  summarise(answer = mean(answer))
+```
+
+From the above result combine with the tree diagram, under k =2, group 1 is more willing to download and they are more reactive to the messages while group 2 are less likely to download and less reactive to the messages
+
+### 4b. Add survey data to the segmentationk
+
+The next step is to see what is the backgroud of those who are more willing to downlad 
+
+```{r merge_survey, message = F}
+full_df = indv_PW%>%
+  rename('response_id' = 'id')%>%
+  left_join(survey_demo, c('response_id'))%>%
+  left_join(survey_behavior, c('response_id'))%>%
+  left_join(survey_philosophy, c('response_id'))%>%
+  left_join(cluster, c( 'response_id'))
+
+full_df[,21:80] <- lapply(full_df[,21:80], factor)
+
+#Demographic summary
+demo_results <- full_df %>%
+  dplyr::select(d_urban:s_problem, d_marital:s_age,k2_cluster)%>%
+  group_by(k2_cluster) %>%
+  do(the_summary = summary(.))
+
+demo_results$the_summary
+
+#Behavior summary
+Behavior_results <- full_df %>%
+  dplyr::select(contains('behavior'),k2_cluster)%>%
+  group_by(k2_cluster) %>%
+  do(the_summary = summary(.))
+
+Behavior_results$the_summary
+
+#Philosophy summary
+Philosophy_results <- full_df %>%
+  dplyr::select(k2_cluster, contains('m1_philosophy'))%>%
+  group_by(k2_cluster) %>%
+  do(the_summary = summary(.))
+
+Philosophy_results$the_summary
+
+
+```
+
+```{r futher_cluster, message = F}
 
 
 ```

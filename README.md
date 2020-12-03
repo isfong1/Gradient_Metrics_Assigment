@@ -396,8 +396,9 @@ ggplot(relative_impact_price, aes(x = price, y = Relative_impact))+
   coord_flip()
 ```
 
-![](GM_Homework_files/figure-markdown_github/price_lm-1.png) rtb and
-social\_proof are the most influential attributes in all price level but
+![](GM_Homework_files/figure-markdown_github/price_lm-1.png) 
+
+rtb and social proof are the most influential attributes in all price level but
 at $40/month, social proof is more influential than others It is also
 remarkable that duration is the third influential attributes at
 $30/month which is much lower in other price level

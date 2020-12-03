@@ -7,7 +7,7 @@ Gradient Metrics Homework Assignment
 
 ##### b. Other than price, scientific proof and targeted programme can also increse the likely to download.
 
-##### c. Respodents who are parents or having children and can’t improve sleep by went to be on time are more likely to download the applications.
+##### c. Respodents who are parents or having children and can’t improve sleep by went to bed on time are more likely to download the applications.
 
 ``` r
 knitr::opts_chunk$set(echo = TRUE)

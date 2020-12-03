@@ -1,6 +1,17 @@
+Gradient Metrics Homework Assignment
+------------------------------------
+
+### 0. Take away
+
+##### a. Price is the main factor affecting whether people would download the application.
+
+##### b. Other than price, scientific proof and targeted programme can also increse the likely to download.
+
+##### c. Respodents who are parents or having children and can’t improve sleep by went to be on time are more likely to download the applications.
+
 ``` r
 knitr::opts_chunk$set(echo = TRUE)
-
+#library loading
 library(haven)
 library(tidyverse)
 library(purrr)
@@ -645,6 +656,24 @@ full_df = indv_PW%>%
 
 full_df[,21:80] <- lapply(full_df[,21:80], factor)
 
+#PLot distribution
+Plot_demo<-function(data, ... , legend.position = "none"){
+  To_plot_demo<-data%>%
+    group_by(k2_cluster, ...)%>%
+    summarise(count =n())%>%
+    group_by(k2_cluster)%>%
+    mutate(Percent_count = count /sum(count))
+  
+ ggplot(To_plot_demo, aes(x= ..., y = Percent_count, fill = k2_cluster))+
+   geom_bar(position="dodge", stat="identity")+
+   scale_fill_brewer(palette="Accent")+
+   theme_minimal()+
+   theme(legend.position = legend.position)
+    
+}
+```
+
+``` r
 #Demographic summary
 demo_results <- full_df %>%
   dplyr::select(d_urban:s_problem, d_marital:s_age,k2_cluster)%>%
@@ -721,6 +750,58 @@ demo_results$the_summary
     ##                        
     ##                        
     ## 
+
+``` r
+#PLot
+p_d_urban<-Plot_demo(full_df, d_urban)
+p_s_gender<-Plot_demo(full_df, s_gender)
+p_s_race<-Plot_demo(full_df, s_race)
+p_d_education<-Plot_demo(full_df, d_education, legend.position = "right")
+p_s_hhincome<-Plot_demo(full_df, s_hhincome)
+p_s_problem<-Plot_demo(full_df, s_problem)
+p_d_marital<-Plot_demo(full_df, d_marital)
+p_d_h_hnumber<-Plot_demo(full_df, d_h_hnumber, legend.position = "right")
+p_d_parent<-Plot_demo(full_df, d_parent)
+p_d_child_infant<-Plot_demo(full_df, d_child_infant)
+p_d_child_young<-Plot_demo(full_df, d_child_young)
+p_d_child_older<-Plot_demo(full_df, d_child_older, legend.position = "right")
+p_d_politics<-Plot_demo(full_df, d_politics)
+p_d_political_view<-Plot_demo(full_df, d_political_view)
+p_d_employment<-Plot_demo(full_df, d_employment)
+p_d_work_schedule<-Plot_demo(full_df, d_work_schedule, legend.position = "right")
+p_d_work_hours<-Plot_demo(full_df, d_work_hours)
+p_s_region<-Plot_demo(full_df, s_region)
+p_s_age<-Plot_demo(full_df, s_age, legend.position = "right")
+
+
+egg::ggarrange(p_d_urban, p_s_gender, p_s_race, p_d_education,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/demo_sum-1.png)
+
+``` r
+egg::ggarrange(p_s_hhincome, p_s_problem, p_d_marital, p_d_h_hnumber,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/demo_sum-2.png)
+
+``` r
+egg::ggarrange(p_d_parent, p_d_child_infant, p_d_child_young, p_d_child_older,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/demo_sum-3.png)
+
+``` r
+egg::ggarrange(p_d_politics, p_d_political_view, p_d_employment, p_d_work_schedule,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/demo_sum-4.png)
+
+``` r
+egg::ggarrange(p_d_work_hours, p_s_region, p_s_age,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/demo_sum-5.png)
 
 ``` r
 #Behavior summary
@@ -821,6 +902,66 @@ Behavior_results$the_summary
     ## 
 
 ``` r
+#Plot
+p_bea_1<-Plot_demo(full_df, behavior_1)
+p_bea_4<-Plot_demo(full_df, behavior_4)
+p_bea_5<-Plot_demo(full_df, behavior_5)
+p_bea_6<-Plot_demo(full_df, behavior_6)
+p_bea_7<-Plot_demo(full_df, behavior_7)
+p_bea_8<-Plot_demo(full_df, behavior_8, legend.position = "right")
+p_bea_9<-Plot_demo(full_df, behavior_9)
+p_bea_10<-Plot_demo(full_df, behavior_10)
+p_bea_11<-Plot_demo(full_df, behavior_11)
+p_bea_12<-Plot_demo(full_df, behavior_12)
+p_bea_13<-Plot_demo(full_df, behavior_13)
+p_bea_14<-Plot_demo(full_df, behavior_14, legend.position = "right")
+p_bea_15<-Plot_demo(full_df, behavior_15)
+p_bea_16<-Plot_demo(full_df, behavior_16)
+p_bea_a_1<-Plot_demo(full_df, behavior_a_1)
+p_bea_a_2<-Plot_demo(full_df, behavior_a_2)
+p_bea_a_3<-Plot_demo(full_df, behavior_a_3)
+p_bea_a_4<-Plot_demo(full_df, behavior_a_4, legend.position = "right")
+p_bea_a_5<-Plot_demo(full_df, behavior_a_5)
+p_bea_a_6<-Plot_demo(full_df, behavior_a_6)
+p_bea_a_7<-Plot_demo(full_df, behavior_a_7)
+p_bea_a_8<-Plot_demo(full_df, behavior_a_8)
+p_bea_a_9<-Plot_demo(full_df, behavior_a_9)
+p_bea_a_10<-Plot_demo(full_df, behavior_a_10, legend.position = "right")
+p_bea_a_11<-Plot_demo(full_df, behavior_a_11)
+p_bea_a_12<-Plot_demo(full_df, behavior_a_12)
+p_bea_a_13<-Plot_demo(full_df, behavior_a_13)
+p_bea_a_14<-Plot_demo(full_df, behavior_a_14, legend.position = "right")
+
+egg::ggarrange(p_bea_1, p_bea_4, p_bea_5, p_bea_6, p_bea_7, p_bea_8,  ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/behav_sum-1.png)
+
+``` r
+egg::ggarrange(p_bea_9, p_bea_10, p_bea_11, p_bea_12, p_bea_13, p_bea_14,  ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/behav_sum-2.png)
+
+``` r
+egg::ggarrange(p_bea_15, p_bea_16, p_bea_a_1, p_bea_a_2, p_bea_a_3, p_bea_a_4,  ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/behav_sum-3.png)
+
+``` r
+egg::ggarrange(p_bea_a_5, p_bea_a_6, p_bea_a_7, p_bea_a_8, p_bea_a_9, p_bea_a_10,  ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/behav_sum-4.png)
+
+``` r
+egg::ggarrange(p_bea_a_11, p_bea_a_12, p_bea_a_13, p_bea_a_14,  ncol = 2)
+```
+
+![](GM_Homework_files/figure-markdown_github/behav_sum-5.png)
+
+``` r
 #Philosophy summary
 Philosophy_results <- full_df %>%
   dplyr::select(k2_cluster, contains('m1_philosophy'))%>%
@@ -869,6 +1010,35 @@ Philosophy_results$the_summary
     ##  3:125          
     ##  4:219          
     ##  5:163
+
+``` r
+#Plot
+p_phi_1<-Plot_demo(full_df, m1_philosophy_1)
+p_phi_2<-Plot_demo(full_df, m1_philosophy_2)
+p_phi_3<-Plot_demo(full_df, m1_philosophy_3, legend.position = "right")
+p_phi_4<-Plot_demo(full_df, m1_philosophy_4)
+p_phi_5<-Plot_demo(full_df, m1_philosophy_5)
+p_phi_6<-Plot_demo(full_df, m1_philosophy_6, legend.position = "right")
+p_phi_7<-Plot_demo(full_df, m1_philosophy_7)
+p_phi_8<-Plot_demo(full_df, m1_philosophy_8)
+p_phi_9<-Plot_demo(full_df, m1_philosophy_9, legend.position = "right")
+
+egg::ggarrange(p_phi_1, p_phi_2, p_phi_3, ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/philo_sum-1.png)
+
+``` r
+egg::ggarrange(p_phi_4, p_phi_5, p_phi_6, ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/philo_sum-2.png)
+
+``` r
+egg::ggarrange(p_phi_7, p_phi_8, p_phi_9, ncol = 3)
+```
+
+![](GM_Homework_files/figure-markdown_github/philo_sum-3.png)
 
 ``` r
 full_df = indv_PW%>%
@@ -992,3 +1162,17 @@ application. If we combine the result with k =3 and k -6 clustering,
 those with children or parents who are note very successful in improving
 sleep by went to bed at the same time are more likely to download the
 application.
+
+### 5. Conclusion
+
+Price is the main factor affecting whether people would download the
+application. Other than price, scientific proof and targeted programme
+can also increse the download rate.
+
+Respodents who are parents or having children and can’t improve sleep by
+went to be on time are more likely to download the applications.
+
+Possible next step is to do another model/ testing to targeted groups to
+confrim parents and those have children are more likely to download the
+application and beside price, is there any other factor affect the
+target group.

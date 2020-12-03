@@ -1,0 +1,147 @@
+---
+title: "Homework Assignment"
+author: "Christopher Fong"
+date: "03/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(haven)
+library(tidyverse)
+library(purrr)
+library(data.table)
+library(relaimpo)
+
+```
+
+
+
+```{r read_data}
+experiment_data <-  read_sav('data/experiment_data.sav')
+survey_data <-  read_sav('data/survey_data.sav')
+
+```
+
+
+### 1. Data checking,  missing and deuplicated data
+```{r data_check}
+#Check is there any missing data or any duplicated data
+
+#Duplication check
+duplicate_survey_data<-survey_data%>%
+  group_by(response_id)%>%
+  summarise(count = n())%>%
+  filter(count > 1)
+
+print(nrow(duplicate_survey_data))
+
+```
+There is no duplicated data in the survey data
+
+```{r data_check_experiment}
+#Check if there is any Duplicated data for experiment data
+
+duplicate_experiment_data<-experiment_data%>%
+  group_by(response_id, duration,offer, outcome, price, rtb, social_proof)%>%
+  dplyr::summarise(count = n())%>%
+  filter(count > 1)
+
+print(nrow(duplicate_experiment_data))
+```
+As there are duplicared data in the experiment dataset, the next step is to check whether they are consitent or not.
+
+
+```{r consitent_check}
+# Merge the dataset for consitent checking
+duplicate_experiment_data2<-duplicate_experiment_data%>%
+  ungroup()%>%
+  mutate(case = row_number())%>%
+  left_join(experiment_data, c('response_id', 'duration','offer', 'outcome', 'price', 'rtb', 'social_proof'))
+
+#Figure out cases that with contradict answer given same combination
+contradict_case = duplicate_experiment_data2%>%
+  dplyr::select(case, answer)%>%
+  unique()%>%
+  group_by(case)%>%
+  summarise(count = n())%>%
+  filter(count > 1)
+
+print(paste0("There are ",nrow(contradict_case), " occasions that there is contradiction between choices of the respondent, same questions but different answer"))
+
+
+```
+
+```{r remove_data}
+#Select those ID which have contradict answer as they are not reliable
+id_to_remove = duplicate_experiment_data2%>%
+  filter(case %in% contradict_case$case)%>%
+  dplyr::select(response_id)%>%
+  unique()
+
+#Remove duplicated case and contradict respondent
+experiment_data_dedup_decon = experiment_data%>%
+  filter(! response_id %in% id_to_remove$response_id)%>%
+  dplyr::select(-task)%>%
+  unique()
+```
+
+### 2. Descriptive Data analysis
+
+```{r answer_distribution}
+
+#Distribution plot for all the attributes in experiment data
+
+# for (i in 1:6){
+#    ans_dist<- experiment_data_dedup_decon%>%
+#     group_by_(colnames(experiment_data_dedup_decon)[i+1], "answer")%>%
+#     dplyr::summarise(count = n())%>%
+#     group_by_(colnames(experiment_data_dedup_decon)[i+1])%>%
+#     mutate(percent_count = count / sum(count))%>%
+#     dplyr::select(-count)
+#    
+#    plot<-ggplot(ans_dist, aes(x = eval(parse(colnames(experiment_data_dedup_decon)[i+2])), y = percent_count))+
+#      geom_bar(stat = "identity")
+#      
+#    
+#    print(plot)
+# }
+```
+
+### 3. Modelling the data
+
+```{r conjon_model}
+
+#Convert all the variables to factor 
+experiment_data_dedup_decon[,2:7] <- lapply(experiment_data_dedup_decon[,2:7], factor)
+
+#Built the first model using conjoint
+model_cj<-lm(answer ~ duration+offer+outcome+price+rtb+social_proof,
+           data = experiment_data_dedup_decon)
+
+#Calculate relative Impact of the model
+relImp <- calc.relimp(model_cj, type =c("lmg"), rela = TRUE)
+
+#Plot the result
+relative_impact<-relImp@lmg%>%data.frame()
+colnames(relative_impact)<-"Relative_impact"
+
+relative_impact$variable<-rownames(relative_impact)
+relative_impact$label <- round(relative_impact$Relative_impact, 2)
+
+relative_impact<-relative_impact%>%
+  arrange(Relative_impact)%>%
+   mutate(variable=factor(variable, levels=variable))
+
+ggplot(relative_impact, aes(x = variable, y = Relative_impact))+
+  geom_bar(stat = "identity", fill = "#002B49")+
+  theme_minimal()+
+  geom_text(aes(label = label, hjust = -0.6), color = "black")+
+  ylim(0,1)+ 
+  coord_flip()
+```
+
+### 4. Clustering on groups of respondent
+```{r cluster}
+```

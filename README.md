@@ -7,7 +7,7 @@ Gradient Metrics Homework Assignment
 
 ##### b. Other than price, scientific proof and targeted programme can also increse the likely to download.
 
-##### c. Respodents who are parents or having children and can’t improve sleep by went to be on time are more likely to download the applications.
+##### c. Respodents who are parents or having children and can’t improve sleep by went to bed on time are more likely to download the applications.
 
 ``` r
 knitr::opts_chunk$set(echo = TRUE)
@@ -396,8 +396,9 @@ ggplot(relative_impact_price, aes(x = price, y = Relative_impact))+
   coord_flip()
 ```
 
-![](GM_Homework_files/figure-markdown_github/price_lm-1.png) rtb and
-social\_proof are the most influential attributes in all price level but
+![](GM_Homework_files/figure-markdown_github/price_lm-1.png) 
+
+rtb and social proof are the most influential attributes in all price level but
 at $40/month, social proof is more influential than others It is also
 remarkable that duration is the third influential attributes at
 $30/month which is much lower in other price level
@@ -576,11 +577,7 @@ kable(round(t(k2$centers), 3))
 | social\_proofprofessional athletes                    |   0.018|  -0.004|
 | social\_proofscientific evidence                      |   0.000|  -0.002|
 
-``` r
-# kable(k2$centers, caption = "center point of cluster with k = 2")
-```
-
-Group 1’s average PW are much larger than group 2 meaning they are more
+Group 1’s average absolute PW are much larger than group 2 meaning they are more
 sensitve person
 
 ``` r

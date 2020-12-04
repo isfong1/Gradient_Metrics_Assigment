@@ -11,7 +11,7 @@ output:
 ### 0. Take away
 ##### a. Price is the main factor affecting whether people would download the application. 
 ##### b. Other than price, scientific proof and targeted programme can also increse the likely to download. 
-##### c. Respodents who are parents or having children and can't improve sleep by went to be on time are more likely to download the applications.
+##### c. Respodents who are parents or having children and can't improve sleep by went to bed on time are more likely to download the applications.
 
 ```{r setup, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
